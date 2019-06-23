@@ -9,7 +9,7 @@
 'strict'
 
 const { map_command } = require('hubot-command-mapper')
-const axios = require('axios')
+const { UpdatableMessage } = require("slack-ext-updatable-message")
 
 const steps = [
   'Preparing environment...',
@@ -51,63 +51,19 @@ module.exports = robot => {
       }
 
       const step = Math.floor(i / 10)
-      const message = `${steps[step]} *${i}%*`
+      const message = {
+        "blocks": [{
+          "type": "section",
+          "text": {
+            "type": "mrkdwn",
+            "text": `${steps[step]} *${i}*%`
+          }
+        }]
+      };
+
       msg.send(message)
 
       i += 3
     }, ms)
   })
-}
-
-// This will create an object that stores all the details of the
-// message and the channel. Because the message can be updated
-// it show that you can build powerfull progress messages or
-// status indicators. We're not using Hubot, but the Slack API.
-// Hubot doesn't give the ts back that's needed to update the
-// message.
-const UpdatableMessage = class {
-  constructor (token, channel) {
-    this.token = token
-    this.channel = channel
-    this.ts = null
-    this.message = null
-    this.nextMessage = null
-    this.sending = false
-  }
-
-  send (msg) {
-    // don't send empty or the same message
-    if (!msg || msg === this.message) { return }
-
-    // if a message is being send, set is as the next message
-    if (this.sending) {
-      this.nextMessage = msg
-      return
-    }
-
-    this.sending = true
-    this.message = msg
-
-    sendMessage(this.token, this.channel, this.ts, msg)
-      .catch(ex => console.log('Something went wrong: ' + ex))
-      .then(ts => {
-        this.ts = ts || this.ts
-        this.sending = false
-        const msg = this.nextMessage
-        this.nextMessage = null
-        this.send(msg)
-      })
-  }
-}
-
-function sendMessage (token, channel, ts, msg) {
-  token = encodeURIComponent(token)
-  channel = encodeURIComponent(channel)
-  msg = encodeURIComponent(msg)
-
-  const action = ts ? 'update' : 'postMessage'
-  const url = `https://slack.com/api/chat.${action}?token=${token}` +
-    `&channel=${channel}&text=${msg}&as_user=true&ts=${ts}`
-
-  return axios.post(url).then(response => response.data.ts)
 }
